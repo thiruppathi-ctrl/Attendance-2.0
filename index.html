@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Labor Attendance & Salary Pro</title>
+    <style>
+        :root { --primary: #111827; --blue: #2563eb; --green: #16a34a; --red: #dc2626; --bg: #f3f4f6; --text-gray: #4b5563; }
+        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 10px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 450px; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .header { text-align: center; margin-bottom: 15px; }
+        .clock-box { background: var(--primary); color: white; padding: 10px; border-radius: 10px; text-align: center; margin-bottom: 20px; font-weight: bold; font-size: 0.9rem; }
+        .mistry-section { background: #eff6ff; padding: 15px; border-radius: 15px; margin-bottom: 20px; border: 1px solid #bfdbfe; }
+        .form-group { background: #f9fafb; border: 1px solid #e5e7eb; padding: 15px; border-radius: 15px; margin-bottom: 20px; }
+        input, select { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 0.95rem; box-sizing: border-box; }
+        .save-btn { background: var(--blue); color: white; border: none; width: 100%; padding: 14px; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .save-btn:active { transform: scale(0.98); }
+        
+        /* Labor Card Style */
+        .card { border: 1px solid #e5e7eb; padding: 15px; border-radius: 18px; margin-bottom: 15px; background: #fff; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .card.present-card { background-color: #f0fdf4; border-color: #86efac; }
+        .card.absent-card { background-color: #fef2f2; border-color: #fca5a5; }
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+        .labor-name { font-size: 1.1rem; font-weight: bold; color: var(--primary); }
+        .edit-del-btns { display: flex; gap: 10px; }
+        .icon-btn { cursor: pointer; font-size: 0.8rem; font-weight: bold; padding: 4px 8px; border-radius: 6px; }
+        .edit-icon { color: var(--blue); background: #dbeafe; }
+        .delete-icon { color: var(--red); background: #fee2e2; }
+        
+        /* Info Row Style */
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; border-top: 1px dashed #e5e7eb; padding-top: 10px; }
+        .info-item { font-size: 0.85rem; color: var(--text-gray); display: flex; align-items: center; gap: 5px; }
+        .info-label { font-weight: 600; color: #374151; }
+        .salary-tag { grid-column: span 2; font-weight: bold; color: var(--blue); font-size: 1rem; margin-top: 5px; }
+
+        .btn-row { display: flex; gap: 10px; margin-top: 15px; }
+        .atd-btn { flex: 1; padding: 12px; border-radius: 10px; border: 1px solid #d1d5db; background: #fff; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .p-active { background: var(--green) !important; color: white; border: none; box-shadow: 0 4px 10px rgba(22, 163, 74, 0.3); }
+        .a-active { background: var(--red) !important; color: white; border: none; box-shadow: 0 4px 10px rgba(220, 38, 38, 0.3); }
+        
+        .master-submit { position: sticky; bottom: 10px; width: 100%; background: var(--primary); color: white; padding: 16px; border-radius: 15px; border: none; font-size: 1rem; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .master-submit:disabled { background: #9ca3af; cursor: not-allowed; }
+        .loading-text { text-align: center; color: var(--blue); font-weight: bold; padding: 10px; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h2 id="t-app">வருகைப் பதிவேடு & சம்பளம்</h2>
+        <select id="langSelect" onchange="updateLanguage(this.value)" style="width: auto; margin-top:10px;">
+            <option value="ta">தமிழ்</option>
+            <option value="en">English</option>
+        </select>
+    </div>
+
+    <div class="clock-box" id="clock">Loading...</div>
+
+    <div class="mistry-section">
+        <input type="text" id="mistryInput" placeholder="புதிய மேஸ்திரி பெயர்...">
+        <button onclick="addMistry()" class="save-btn" id="btn-add-mistry" style="padding: 10px; margin-bottom: 10px; width: 100%;">மேஸ்திரியைச் சேர் (Add)</button>
+        <select id="activeMistry" onchange="fetchMistryLabors(this.value)">
+            <option value="" id="opt-mistry-select">-- மேஸ்திரி தேர்வு செய்க --</option>
+        </select>
+    </div>
+
+    <div id="loadingStatus" class="loading-text">தரவுகள் ஏற்றப்படுகின்றன...</div>
+
+    <div class="form-group">
+        <input type="hidden" id="edit-index" value="-1">
+        <input type="number" id="inp-sno" placeholder="வரிசை எண் (S.No)">
+        <input type="text" id="inp-name" placeholder="தொழிலாளி பெயர்">
+        <input type="text" id="inp-phone" placeholder="தொலைபேசி எண்">
+        <input type="text" id="inp-addr" placeholder="முகவரி">
+        <select id="inp-gen">
+            <option value="" id="opt-gen">பாலினம் (Gender)</option>
+            <option value="Male">ஆண் (Male)</option>
+            <option value="Female">பெண் (Female)</option>
+        </select>
+        <input type="number" id="inp-sal" placeholder="தினசரி சம்பளம்">
+        <button class="save-btn" onclick="saveToLocal()" id="t-save">பட்டியலில் சேர்</button>
+    </div>
+
+    <div id="laborDisplay"></div>
+
+    <button class="master-submit" id="finalSubmit" onclick="submitAttendance()" disabled>விவரங்களைச் சேமிக்கவும் ☁️</button>
+</div>
+
+<script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbzGYvM18nRvMAI1uDXHXNYJmOYdS3csqAK6H3SP6KNNSiZgJUngPBDTh95F00FFPYI/exec";
+    let labors = [];
+
+    const translations = {
+        ta: {
+            app: "வருகைப் பதிவேடு & சம்பளம்",
+            mistryPlaceholder: "புதிய மேஸ்திரி பெயர்...",
+            addMistry: "மேஸ்திரியைச் சேர்",
+            mistrySelect: "-- மேஸ்திரி தேர்வு செய்க --",
+            sno: "வரிசை எண் (S.No)",
+            name: "தொழிலாளி பெயர்",
+            phone: "தொலைபேசி எண்",
+            addr: "முகவரி",
+            gen: "பாலினம் (Gender)",
+            sal: "தினசரி சம்பளம்",
+            saveBtn: "பட்டியலில் சேர்",
+            updateBtn: "தகவலைப் புதுப்பி",
+            submit: "விவரங்களைச் சேமிக்கவும் ☁️",
+            loading: "தரவுகள் ஏற்றப்படுகின்றன...",
+            edit: "திருத்து",
+            del: "நீக்கு",
+            empty: "பட்டியல் காலியாக உள்ளது.",
+            p: "வந்துள்ளார்",
+            a: "வரவில்லை"
+        },
+        en: {
+            app: "Attendance & Salary Pro",
+            mistryPlaceholder: "New Mistry Name...",
+            addMistry: "Add Mistry",
+            mistrySelect: "-- Select Mistry --",
+            sno: "S.No",
+            name: "Labor Name",
+            phone: "Phone Number",
+            addr: "Address",
+            gen: "Gender",
+            sal: "Daily Salary",
+            saveBtn: "Add to List",
+            updateBtn: "Update Info",
+            submit: "Submit to Cloud ☁️",
+            loading: "Loading data...",
+            edit: "Edit",
+            del: "Delete",
+            empty: "List is empty.",
+            p: "Present",
+            a: "Absent"
+        }
+    };
+
+    setInterval(() => { 
+        const lang = document.getElementById('langSelect').value;
+        document.getElementById('clock').innerText = new Date().toLocaleString(lang === 'ta' ? 'ta-IN' : 'en-US'); 
+    }, 1000);
+
+    function updateLanguage(lang) {
+        const t = translations[lang];
+        document.getElementById('t-app').innerText = t.app;
+        document.getElementById('mistryInput').placeholder = t.mistryPlaceholder;
+        document.getElementById('btn-add-mistry').innerText = t.addMistry;
+        document.getElementById('opt-mistry-select').innerText = t.mistrySelect;
+        document.getElementById('inp-sno').placeholder = t.sno;
+        document.getElementById('inp-name').placeholder = t.name;
+        document.getElementById('inp-phone').placeholder = t.phone;
+        document.getElementById('inp-addr').placeholder = t.addr;
+        document.getElementById('opt-gen').innerText = t.gen;
+        document.getElementById('inp-sal').placeholder = t.sal;
+        document.getElementById('t-save').innerText = document.getElementById('edit-index').value === "-1" ? t.saveBtn : t.updateBtn;
+        document.getElementById('finalSubmit').innerText = t.submit;
+        document.getElementById('loadingStatus').innerText = t.loading;
+        render();
+    }
+
+    function addMistry() {
+        let name = document.getElementById('mistryInput').value.trim();
+        if(!name) return;
+        let list = JSON.parse(localStorage.getItem('mistryData')) || [];
+        if(!list.includes(name)) list.push(name);
+        localStorage.setItem('mistryData', JSON.stringify(list));
+        document.getElementById('mistryInput').value = "";
+        initMistryUI();
+    }
+
+    function initMistryUI() {
+        let list = JSON.parse(localStorage.getItem('mistryData')) || [];
+        let select = document.getElementById('activeMistry');
+        const lang = document.getElementById('langSelect').value;
+        select.innerHTML = `<option value="">${translations[lang].mistrySelect}</option>`;
+        list.forEach(n => select.innerHTML += `<option value="${n}">${n}</option>`);
+    }
+
+    async function fetchMistryLabors(mistryName) {
+        if (!mistryName) { labors = []; render(); return; }
+        document.getElementById('laborDisplay').innerHTML = ""; 
+        const loader = document.getElementById('loadingStatus');
+        loader.style.display = 'block';
+        try {
+            const response = await fetch(`${API_URL}?mistry=${encodeURIComponent(mistryName)}`);
+            const data = await response.json();
+            labors = data && data.length > 0 ? data.map(item => ({...item, status: ''})) : [];
+        } catch (error) {
+            labors = JSON.parse(localStorage.getItem('laborData_' + mistryName) || '[]');
+        } finally {
+            loader.style.display = 'none';
+            render(); 
+        }
+    }
+
+    // --- திருத்தப்பட்ட saveToLocal: ஆப்பில் மட்டும் சேமிக்கும் ---
+    async function saveToLocal() {
+        const mistry = document.getElementById('activeMistry').value;
+        if(!mistry) { alert("Select Mistry first!"); return; }
+
+        const nameVal = document.getElementById('inp-name').value.trim();
+        const snoVal = document.getElementById('inp-sno').value;
+        if(!nameVal) return;
+
+        const editIdx = parseInt(document.getElementById('edit-index').value);
+
+        const newData = {
+            sNo: snoVal,
+            name: nameVal,
+            phone: document.getElementById('inp-phone').value,
+            address: document.getElementById('inp-addr').value,
+            gender: document.getElementById('inp-gen').value,
+            salary: document.getElementById('inp-sal').value,
+            status: '', // ஷீட்டிற்கு அனுப்பும் முன் ஸ்டேட்டஸ் காலியாக இருக்கும்
+            recordedBy: mistry
+        };
+
+        const isDuplicate = labors.some((l, index) => 
+            l.name.toLowerCase().trim() === nameVal.toLowerCase().trim() && index !== editIdx
+        );
+
+        if (isDuplicate) {
+            alert("Error: This name already exists!");
+            return;
+        }
+
+        if (editIdx !== -1) labors[editIdx] = newData;
+        else labors.push(newData);
+
+        localStorage.setItem('laborData_' + mistry, JSON.stringify(labors));
+        document.getElementById('edit-index').value = "-1";
+        document.getElementById('t-save').innerText = "Add to List";
+        clearInputs();
+        render();
+    }
+
+    function clearInputs() {
+        ['inp-sno','inp-name','inp-phone','inp-addr','inp-gen','inp-sal'].forEach(id => document.getElementById(id).value = "");
+    }
+
+    function render() {
+        const cont = document.getElementById('laborDisplay');
+        const lang = document.getElementById('langSelect').value;
+        const t = translations[lang];
+        
+        if (labors.length === 0) {
+            cont.innerHTML = `<p style='text-align:center; padding:20px; color:#9ca3af;'>${t.empty}</p>`;
+            document.getElementById('finalSubmit').disabled = true;
+            return;
+        }
+
+        cont.innerHTML = labors.map((l, i) => `
+            <div class="card ${l.status==='Present'?'present-card':l.status==='Absent'?'absent-card':''}">
+                <div class="card-header">
+                    <div class="labor-name">${l.sNo}. ${l.name}</div>
+                    <div class="edit-del-btns">
+                        <span class="icon-btn edit-icon" onclick="prepareEdit(${i})">${t.edit}</span>
+                        <span class="icon-btn delete-icon" onclick="deleteLabor(${i})">${t.del}</span>
+                    </div>
+                </div>
+                
+                <div class="info-grid">
+                    <div class="info-item"><span class="info-label">📞:</span> ${l.phone || '---'}</div>
+                    <div class="info-item"><span class="info-label">🚻:</span> ${l.gender || '---'}</div>
+                    <div class="info-item" style="grid-column: span 2;"><span class="info-label">📍:</span> ${l.address || '---'}</div>
+                    <div class="salary-tag">💰 ${t.sal}: ₹${l.salary}</div>
+                </div>
+
+                <div class="btn-row">
+                    <button class="atd-btn ${l.status==='Present'?'p-active':''}" onclick="setStatus(${i},'Present')">${t.p}</button>
+                    <button class="atd-btn ${l.status==='Absent'?'a-active':''}" onclick="setStatus(${i},'Absent')">${t.a}</button>
+                </div>
+            </div>
+        `).join('');
+
+        document.getElementById('finalSubmit').disabled = !labors.some(l => l.status !== '');
+    }
+
+    function setStatus(i, s) { labors[i].status = s; render(); }
+
+    function deleteLabor(i) {
+        if(confirm("Confirm Delete?")) {
+            labors.splice(i, 1);
+            render();
+        }
+    }
+
+    function prepareEdit(i) {
+        const l = labors[i];
+        document.getElementById('edit-index').value = i;
+        document.getElementById('inp-sno').value = l.sNo;
+        document.getElementById('inp-name').value = l.name;
+        document.getElementById('inp-phone').value = l.phone;
+        document.getElementById('inp-addr').value = l.address;
+        document.getElementById('inp-gen').value = l.gender;
+        document.getElementById('inp-sal').value = l.salary;
+        updateLanguage(document.getElementById('langSelect').value);
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    }
+
+    // --- திருத்தப்பட்ட submitAttendance: வருகைப்பதிவு செய்யும்போது அனைத்தையும் ஷீட்டிற்கு அனுப்பும் ---
+    async function submitAttendance() {
+        const mistry = document.getElementById('activeMistry').value;
+        const btn = document.getElementById('finalSubmit');
+        const lang = document.getElementById('langSelect').value;
+        btn.innerText = lang === 'ta' ? "சேமிக்கப்படுகிறது..." : "Saving..."; 
+        btn.disabled = true;
+        const now = new Date();
+        
+        const data = labors.filter(l => l.status !== '').map(l => ({
+            sNo: l.sNo, name: l.name, phone: l.phone, address: l.address, gender: l.gender,
+            status: l.status, date: now.toLocaleDateString('en-GB'),
+            time: now.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', hour12:true}),
+            day: now.toLocaleDateString('en-US', {weekday:'long'}),
+            salary: l.status === 'Absent' ? 0 : l.salary, 
+            recordedBy: mistry
+        }));
+
+        if (data.length === 0) {
+            alert(lang === 'ta' ? "வருகைப்பதிவு செய்யப்படவில்லை!" : "No attendance marked!");
+            btn.innerText = translations[lang].submit;
+            btn.disabled = false;
+            return;
+        }
+
+        try {
+            await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(data) });
+            alert(lang === 'ta' ? "தரவுகள் வெற்றிகரமாக ஷீட்டில் சேமிக்கப்பட்டது!" : "Data Saved to Sheet Successfully!");
+            labors.forEach(l => l.status = '');
+            render();
+        } catch(e) { alert("Error: " + e.message); }
+        
+        btn.innerText = translations[lang].submit;
+        btn.disabled = false;
+    }
+
+    window.onload = () => {
+        initMistryUI();
+        updateLanguage('ta');
+    };
+</script>
+</body>
+</html>
